@@ -1,0 +1,1 @@
+{"disculpe": {"counter_file": "disculpe_counter.txt", "model": "models/vosk-model-small-es"}, "wait": {"counter_file": "wait_counter.txt", "model": "models/vosk-model-small-en-us"}}
