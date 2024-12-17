@@ -23,9 +23,10 @@ def list_audio_devices():
 def display_audio_devices():
     print("Available Audio Devices:\n")
     for device in list_audio_devices():
-        print(f"Device {device['index']}: {device['name']}")
-        print(f"    Max Input Channels: {device['max_input_channels']}")
-        print(f"    Max Output Channels: {device['max_output_channels']}\n")
+        if "VB" in device['name']:
+            print(f"Device {device['index']}: {device['name']}")
+            print(f"    Max Input Channels: {device['max_input_channels']}")
+            print(f"    Max Output Channels: {device['max_output_channels']}\n")
 
 
 if __name__ == "__main__":

@@ -1,14 +1,14 @@
 import pyaudio
-import numpy as np
 import threading
 import queue
 import sys
 import time
+import json
 
-# Import your transcription library here
-from faster_whisper import WhisperModel
-# If using Vosk, import necessary modules
-# from vosk import Model, KaldiRecognizer
+# Import Vosk modules
+from vosk import Model, KaldiRecognizer
+
+TARGET_WORD = "disculpe"
 
 
 def list_audio_devices():
@@ -77,45 +77,33 @@ def audio_callback(in_data, frame_count, time_info, status):
     return (None, pyaudio.paContinue)
 
 
-def transcribe_audio(model, audio_queue, counter):
+def transcribe_audio(model, audio_queue, counter, sample_rate):
     """
     Continuously processes audio data from the queue and detects the keyword.
+    Uses Vosk's KaldiRecognizer for transcription.
     """
+    recognizer = KaldiRecognizer(model, sample_rate)
+    recognizer.SetWords(False)  # Disable word-level timestamps for efficiency
+
     while True:
         try:
             data = audio_queue.get()
-            # Convert byte data to numpy array
-            audio_data = (
-                np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768.0
-            )  # Normalize
-            # If using faster-whisper, process the audio_data
-            segments, info = model.transcribe(audio_data, language='es', beam_size=5)
-            text = " ".join([segment.text for segment in segments]).lower()
+            if recognizer.AcceptWaveform(data):
+                result = recognizer.Result()
+                result_dict = json.loads(result)
+                text = result_dict.get("text", "").lower()
 
-            # Placeholder for transcription
-            # Replace the following line with actual transcription
-            # text = mock_transcription(audio_data)
-
-            if "disculpe" in text:
-                occurrences = text.count("disculpe")
-                counter.increment(occurrences)
-                print(
-                    f"Detected 'disculpe' {occurrences} time(s). Total: {counter.count}"
-                )
+                if TARGET_WORD in text:
+                    occurrences = text.count(TARGET_WORD)
+                    counter.increment(occurrences)
+                    print(
+                        f"Detected '{TARGET_WORD}' {occurrences} time(s). Total: {counter.count}"
+                    )
+            else:
+                # For partial results, you can handle them if needed
+                pass
         except Exception as e:
             print(f"Error in transcription thread: {e}")
-
-
-def mock_transcription(audio_data):
-    """
-    Mock transcription function for demonstration.
-    Replace this with actual transcription logic using faster-whisper or another library.
-    """
-    # For demonstration, we'll pretend "disculpe" is detected every 10 seconds
-    current_time = time.time()
-    if int(current_time) % 10 == 0:
-        return "disculpe"
-    return ""
 
 
 if __name__ == "__main__":
@@ -152,8 +140,13 @@ if __name__ == "__main__":
     audio_queue = queue.Queue()
     counter = Counter()
 
-    # Initialize transcription model
-    # model = WhisperModel("small", device="cuda", compute_type="float16")  # Uncomment if using faster-whisper
+    # Initialize Vosk model
+    try:
+        model_path = "models/vosk-model-small-en-us"  # Replace with your model path
+        model = Model(model_path)
+    except Exception as e:
+        print(f"Failed to load Vosk model from '{model_path}': {e}")
+        sys.exit(1)
 
     # Open the audio stream
     try:
@@ -172,7 +165,7 @@ if __name__ == "__main__":
 
         # Start transcription thread
         transcription_thread = threading.Thread(
-            target=transcribe_audio, args=(None, audio_queue, counter)
+            target=transcribe_audio, args=(model, audio_queue, counter, RATE)
         )
         transcription_thread.daemon = True
         transcription_thread.start()
