@@ -1,4 +1,8 @@
 counter.txt
+models/*
+!models/README.md
+*_counter.txt
+env*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
